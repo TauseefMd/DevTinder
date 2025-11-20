@@ -6,9 +6,12 @@ const User = require("./models/user");
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-  const user = new User(req.body);
-
   try {
+    const data = req.body;
+    if (data.skills && data.skills.length > 10) {
+      throw new Error("you can add a maximum of 10 skills.");
+    }
+    const user = new User(req.body);
     await user.save();
     res.send("User added successfully!");
   } catch (error) {
@@ -52,17 +55,30 @@ app.delete("/user", async (req, res) => {
 });
 
 // Update data of the user
-app.patch("/user", async (req, res) => {
-  const userId = req.body.userId;
+// API Level validation - donot allow user to update userId, emailId, firstName and add limit to number skills
+app.patch("/user/:userId", async (req, res) => {
+  const userId = req.params?.userId;
   const data = req.body;
   try {
+    const allowedUpdates = ["age", "gender", "photoUrl", "about", "skills"];
+    const isValidUpdate = Object.keys(data).every((k) =>
+      allowedUpdates.includes(k)
+    );
+    if (!isValidUpdate) {
+      throw new Error(
+        "Update could not be completed as the requested change is not allowed."
+      );
+    }
+    if (data.skills && data.skills.length > 10) {
+      throw new Error("you can add a maximum of 10 skills.");
+    }
     const user = await User.findByIdAndUpdate(userId, data, {
       returnDocument: "after",
       runValidators: true,
     });
     res.send("User updated successfully!!!");
   } catch (error) {
-    res.status(400).send("Error saving the user: " + error.message);
+    res.status(400).send("Error updating the user: " + error.message);
   }
 });
 
