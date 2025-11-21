@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
+const validator = require("validator");
 
 const userSchema = new mongoose.Schema(
   {
     firstName: {
       type: String,
       required: true,
-      minLength: 4,
+      minLength: 2,
       maxLength: 50,
     },
     lastName: {
@@ -17,11 +18,21 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      validate(value) {
+        if (!validator.isEmail(value)) {
+          throw new Error("Please enter a valid emailId : " + value);
+        }
+      },
     },
     password: {
       type: String,
       required: true,
       minLength: 8,
+      validate(value) {
+        if (!validator.isStrongPassword(value)) {
+          throw new Error("Please enter strong password : " + value);
+        }
+      },
     },
     age: {
       type: String,
@@ -39,6 +50,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default:
         "https://www.citypng.com/public/uploads/preview/hd-man-user-illustration-icon-transparent-png-701751694974843ybexneueic.png",
+      validate(value) {
+        if (!validator.isURL(value)) {
+          throw new Error("Please enter a valid photo url : " + value);
+        }
+      },
     },
     about: {
       type: String,
