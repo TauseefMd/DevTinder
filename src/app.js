@@ -4,8 +4,12 @@ const connectDB = require("./config/database");
 const User = require("./models/user");
 const { validateSignUpData } = require("./utils/validation");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+require("dotenv").config();
+const jwt = require("jsonwebtoken");
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
   try {
@@ -15,7 +19,6 @@ app.post("/signup", async (req, res) => {
     const { firstName, lastName, emailId, password } = req.body;
     // Encrypt the password
     const hashedPassword = await bcrypt.hash(password, 10);
-    console.log(hashedPassword);
 
     const data = req.body;
     if (data.skills && data.skills.length > 10) {
@@ -40,18 +43,42 @@ app.post("/signup", async (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
-    const userData = await User.find({ emailId: emailId });
-    if (!userData.length) {
+    const userData = await User.findOne({ emailId: emailId });
+    if (!userData) {
       throw new Error("Invalid Credentials");
     }
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      userData[0].password
-    );
-    if (!isPasswordValid) {
+    const isPasswordValid = await bcrypt.compare(password, userData.password);
+    if (isPasswordValid) {
+      const token = await jwt.sign(
+        { _id: userData._id },
+        process.env.SECRET_KEY
+      );
+
+      res.cookie("token", token);
+      res.send("Login Successfull");
+    } else {
       throw new Error("Invalid Credentials");
     }
-    res.send("Login Successfull");
+  } catch (error) {
+    res.status(400).send("Error: " + error.message);
+  }
+});
+
+app.get("/profile", async (req, res) => {
+  try {
+    const cookies = req.cookies;
+    const { token } = cookies;
+    if (!token) {
+      throw new Error("Invalid token!!");
+    }
+    const decodedMessage = await jwt.verify(token, process.env.SECRET_KEY);
+
+    const user = await User.findById(decodedMessage._id);
+    if (!user) {
+      throw new Error("User does not exist");
+    }
+
+    res.send(user);
   } catch (error) {
     res.status(400).send("Error: " + error.message);
   }
@@ -75,7 +102,6 @@ app.get("/user", async (req, res) => {
 app.get("/feed", async (req, res) => {
   try {
     const allUser = await User.find();
-    console.log(allUser);
     res.send(allUser);
   } catch (error) {
     res.status(400).send("Error saving the user: " + error.message);
