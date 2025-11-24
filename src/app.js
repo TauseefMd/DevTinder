@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middlewares/auth");
 
 app.use(express.json());
 app.use(cookieParser());
@@ -51,10 +52,13 @@ app.post("/login", async (req, res) => {
     if (isPasswordValid) {
       const token = await jwt.sign(
         { _id: userData._id },
-        process.env.SECRET_KEY
+        process.env.SECRET_KEY,
+        { expiresIn: "7h" }
       );
 
-      res.cookie("token", token);
+      res.cookie("token", token, {
+        expires: new Date(Date.now() + 8 * 3600000),
+      });
       res.send("Login Successfull");
     } else {
       throw new Error("Invalid Credentials");
@@ -64,20 +68,9 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/profile", async (req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
   try {
-    const cookies = req.cookies;
-    const { token } = cookies;
-    if (!token) {
-      throw new Error("Invalid token!!");
-    }
-    const decodedMessage = await jwt.verify(token, process.env.SECRET_KEY);
-
-    const user = await User.findById(decodedMessage._id);
-    if (!user) {
-      throw new Error("User does not exist");
-    }
-
+    const user = req.user;
     res.send(user);
   } catch (error) {
     res.status(400).send("Error: " + error.message);
